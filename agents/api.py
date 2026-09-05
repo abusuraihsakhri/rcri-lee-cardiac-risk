@@ -3,6 +3,7 @@ FastAPI REST API Server for Rcri Lee Cardiac Risk.
 """
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard
 from .models import SystemTaskPayload, ConsensusDossier
@@ -26,13 +27,10 @@ def health():
     return {"status": "HEALTHY", "service": "rcri-lee-cardiac-risk", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
 
 
-@app.get("/metrics")
+@app.get("/metrics", response_class=PlainTextResponse)
 def metrics():
-    return {
-        "dossiers_processed_total": len(supervisor.dossier_registry),
-        "audit_blocks_total": len(AuditLogger.get_trail()),
-        "system_status": "NOMINAL_OPTIMAL"
-    }
+    from .metrics import GLOBAL_METRICS
+    return GLOBAL_METRICS.export_prometheus_text()
 
 
 @app.post("/api/audit")

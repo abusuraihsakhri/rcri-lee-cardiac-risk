@@ -31,79 +31,129 @@ License: MIT
 
 ### 🔬 Analytical Functions
 
-- **`calculate_metrics()`**: Core domain algorithm for rcri-lee-cardiac-risk.
-- **`process_single()`** — calculates and validates process_single parameters.
-- **`process_batch()`** — calculates and validates process_batch parameters.
-- **`main()`** — calculates and validates main parameters.
+- **`calculate_metrics()`**: Core scoring algorithm with NaN/Infinity validation
+- **`process_single()`** — evaluates a single case with provided parameters
+- **`process_batch()`** — processes CSV input with file validation and error handling
+- **`main()`** — CLI entry point supporting single and batch modes
 
 ---
 
 ## 📐 Mathematical Formulation & Logic
 
 ```text
-  score = primary_val
+  score = primary_val + Σ(val_i * (1/i))  for i = 2..n
   rounded_score = round(score, 2)
-  res = calculate_metrics(**kwargs)
-  calc_res = calculate_metrics(**r)
+```
+
+Classification tiers:
+- **< 10.0**: Low / Standard — Standard monitoring
+- **10.0 - 24.9**: Moderate / Intermediate — Close observation
+- **≥ 25.0**: High / Severe — Urgent clinical intervention
+
+---
+
+## 💻 Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/abusuraihsakhri/rcri-lee-cardiac-risk.git
+cd rcri-lee-cardiac-risk
+
+# Install dependencies
+pip install -e ".[test]"
+
+# Or install directly
+pip install fastapi uvicorn pydantic pytest
 ```
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## 🖥️ CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### 1. Single Case Evaluation
 ```bash
-python cli.py
+python rcri_lee.py single --v1 14.5 --v2 4.2 --v3 1.8
 ```
 
-### 2. Direct Parameterized Evaluation
+### 2. Batch CSV Processing
 ```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
+python rcri_lee.py batch -i sample.csv -o results.csv
+```
+
+### 3. Enterprise CLI (Agents System)
+```bash
+# Audit evaluation
+python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
+
+# Batch processing
+python cli.py batch -i sample.csv -o results.csv
+
+# Verify audit trail integrity
+python cli.py verify-audit
+
+# Launch REST API server
+python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
 ### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
+- `--v1`, `--v2`, `--v3`: Numeric measurement values (default: 10.0, 5.0, 2.0)
+- `-i`, `--input`: Input CSV file path (required for batch mode)
+- `-o`, `--output`: Output CSV file path (default: results.csv)
 
 ### Input Data Schema
 
 | Field | Description | Requirement |
 |:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+| `Patient_ID` | Patient identifier | Required |
+| `v1` | Primary measurement value | Required |
+| `v2` | Secondary measurement value | Required |
+| `v3` | Tertiary measurement value | Optional |
+
+---
+
+## 🔒 Security Configuration
+
+### Audit Secret Key
+The HMAC-SHA256 audit trail requires a secret key for persistent integrity:
+
+```bash
+# Set via environment variable
+export AUDIT_SECRET_KEY="your-secure-random-key-min-32-chars"
+```
+
+If not set, an ephemeral session key is generated with a runtime warning.
 
 ---
 
 ## 🛡️ Security & Enterprise Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and Prometheus text metrics (`/metrics`)
+* **Input Validation:** NaN and Infinity values are safely handled as non-numeric
 
 ---
 
 ## 🧪 Testing & Verification
 
-Run the automated test suite:
+Run the full test suite:
 
 ```bash
 pytest -v
 ```
 
-Execute high-throughput batch simulation benchmarks:
+Run specific test modules:
 
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+pytest tests/test_edge_cases.py -v
+pytest tests/test_rcri_lee_cardiac_risk.py -v
+pytest tests/test_enrichment.py -v
+```
+
+Execute simulation benchmark:
+
+```bash
+python simulator.py 1000
 ```
 
 ---
@@ -112,5 +162,31 @@ python simulator.py --tasks 1000 --concurrency 8
 
 ```bash
 docker build -t rcri-lee-cardiac-risk .
-docker run -p 8000:8000 rcri-lee-cardiac-risk
+docker run -p 8000:8000 -e AUDIT_SECRET_KEY="your-secret" rcri-lee-cardiac-risk
+```
+
+---
+
+## 📁 Project Structure
+
+```
+rcri-lee-cardiac-risk/
+├── agents/                 # Enterprise agent system
+│   ├── api.py             # FastAPI REST server
+│   ├── base.py            # Security, PHI guard, audit trail
+│   ├── models.py          # Pydantic data models
+│   ├── supervisor.py      # Multi-agent orchestrator
+│   ├── workers.py         # Specialized worker agents
+│   ├── metrics.py         # Prometheus metrics collector
+│   ├── learning.py        # Bayesian calibration engine
+│   └── llm_factory.py     # LLM provider factory
+├── tests/                 # Test suite
+├── web/                   # Web dashboard
+├── cli.py                 # Enterprise CLI entry point
+├── rcri_lee.py            # Core scoring module
+├── enrichment.py          # Enrichment feature engines
+├── simulator.py           # Load testing simulator
+├── pyproject.toml         # Project metadata and dependencies
+├── Dockerfile             # Container definition
+└── docker-compose.yml     # Multi-service orchestration
 ```

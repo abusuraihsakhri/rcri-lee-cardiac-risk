@@ -16,6 +16,13 @@ import sys
 from typing import Dict, Any, List, Optional
 
 
+def _is_valid_number(val: Any) -> bool:
+    """Check if value is a finite, non-NaN number."""
+    if not isinstance(val, (int, float)):
+        return False
+    return math.isfinite(val)
+
+
 def calculate_metrics(**kwargs) -> Dict[str, Any]:
     """
     Core domain algorithm for rcri-lee-cardiac-risk.
@@ -24,7 +31,11 @@ def calculate_metrics(**kwargs) -> Dict[str, Any]:
     for k, v in kwargs.items():
         if v is not None:
             try:
-                params[k] = float(v)
+                fv = float(v)
+                if math.isfinite(fv):
+                    params[k] = fv
+                else:
+                    params[k] = str(v)
             except (ValueError, TypeError):
                 params[k] = str(v)
 
@@ -66,6 +77,9 @@ def process_single(args) -> None:
 
 
 def process_batch(input_csv: str, output_csv: str) -> None:
+    import os
+    if not os.path.isfile(input_csv):
+        raise FileNotFoundError(f"Input CSV not found: {input_csv}")
     with open(input_csv, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
