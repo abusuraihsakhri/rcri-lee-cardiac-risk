@@ -4,7 +4,7 @@ FastAPI REST API Server for Rcri Lee Cardiac Risk.
 from typing import Dict, Any, List
 import os
 import hmac
-from fastapi import FastAPI, HTTPException, Header, status
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, ConfigDict, StrictBool
 from .base import AuditLogger, PHIGuard, SecurityException
@@ -17,7 +17,7 @@ supervisor = SystemSupervisor(model_provider="mock")
 app = FastAPI(
     title="Rcri Lee Cardiac Risk API",
     description="RCRI scoring and legacy generic audit endpoints",
-    version="3.0.0-ENTERPRISE",
+    version="3.1.0",
 )
 
 
@@ -44,7 +44,7 @@ def api_rcri(payload: RCRIRequest):
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "rcri-lee-cardiac-risk", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "ok", "service": "rcri-lee-cardiac-risk", "version": "3.1.0"}
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
@@ -55,7 +55,10 @@ def metrics():
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
+    try:
+        dossier = supervisor.process_task(payload)
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Identifier rejected by input safeguards") from None
     return dossier.to_dict()
 
 
@@ -64,8 +67,8 @@ def api_chat(req: ChatRequest):
     try:
         ans = supervisor.query_supervisory_chat(req.query)
         return {"response": ans}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Query rejected by input safeguards") from None
 
 
 @app.get("/api/audit/logs")
