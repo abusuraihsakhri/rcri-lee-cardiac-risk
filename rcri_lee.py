@@ -1,130 +1,122 @@
 #!/usr/bin/env python3
-"""
-Revised Cardiac Risk Index (RCRI / Lee Index)
-Predicts perioperative major adverse cardiac events (MACE) in non-cardiac surgery.
+"""Revised Cardiac Risk Index (Lee Index) for noncardiac surgery.
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+Six binary predictors, one point each. Validation-cohort rates are descriptive,
+not patient-specific probabilities; see Lee et al., Circulation 1999.
 """
-
 import argparse
 import csv
 import json
-import math
-import sys
-from typing import Dict, Any, List, Optional
+from pathlib import Path
+
+FACTORS = (
+    "high_risk_surgery",
+    "ischemic_heart_disease",
+    "heart_failure",
+    "cerebrovascular_disease",
+    "insulin_treatment",
+    "creatinine_ge_2",
+)
+LABELS = {
+    "high_risk_surgery": "High-risk noncardiac surgery",
+    "ischemic_heart_disease": "History of ischemic heart disease",
+    "heart_failure": "History of congestive heart failure",
+    "cerebrovascular_disease": "History of cerebrovascular disease",
+    "insulin_treatment": "Preoperative insulin treatment",
+    "creatinine_ge_2": "Serum creatinine >= 2.0 mg/dL",
+}
+# Observed major cardiac complication rates in the original VALIDATION cohort;
+# 3, 4, 5 and 6 predictors share the >=3 category.
+VALIDATION_RATES = (0.4, 0.9, 7.0, 11.0)
 
 
-def _is_valid_number(val: Any) -> bool:
-    """Check if value is a finite, non-NaN number."""
-    if not isinstance(val, (int, float)):
-        return False
-    return math.isfinite(val)
+def calculate_metrics(**kwargs):
+    """Calculate an integer RCRI (0–6) from exactly the six Boolean predictors.
 
-
-def calculate_metrics(**kwargs) -> Dict[str, Any]:
+    Missing factors are errors; unknown factors and coercion of strings or
+    numeric values are prohibited to avoid silently misclassifying patients.
     """
-    Core domain algorithm for rcri-lee-cardiac-risk.
-    """
-    params = {}
-    for k, v in kwargs.items():
-        if v is not None:
-            try:
-                fv = float(v)
-                if math.isfinite(fv):
-                    params[k] = fv
-                else:
-                    params[k] = str(v)
-            except (ValueError, TypeError):
-                params[k] = str(v)
-
-    # Deterministic domain logic
-    numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
-
-    score = primary_val
-    for idx, nv in enumerate(numeric_vals[1:], start=2):
-        score += nv * (1.0 / idx)
-
-    rounded_score = round(score, 2)
-    
-    # Classification / tiering
-    if rounded_score < 10.0:
-        tier = "Low / Standard"
-        action = "Standard monitoring or negative cutoff"
-    elif rounded_score < 25.0:
-        tier = "Moderate / Intermediate"
-        action = "Close observation or secondary evaluation"
-    else:
-        tier = "High / Severe"
-        action = "Urgent clinical intervention or primary positive finding"
-
+    missing = [factor for factor in FACTORS if factor not in kwargs]
+    unknown = [key for key in kwargs if key not in FACTORS]
+    if missing or unknown:
+        raise ValueError(f"Invalid RCRI inputs; missing={missing}, unknown={unknown}")
+    for factor in FACTORS:
+        if type(kwargs[factor]) is not bool:
+            raise ValueError(f"{factor} must be a Boolean (True or False)")
+    score = sum(kwargs[factor] for factor in FACTORS)
+    category = min(score, 3)
     return {
         "tool": "rcri-lee-cardiac-risk",
-        "score": rounded_score,
-        "classification": tier,
-        "clinical_recommendation": action,
-        "inputs_evaluated": len(params),
+        "score": score,
+        "classification": ("Class I", "Class II", "Class III", "Class IV")[category],
+        "risk_category": "Elevated" if score >= 2 else "Low",
+        "validation_event_rate_percent": VALIDATION_RATES[category],
+        "event_rate_context": "Original Lee 1999 validation cohort; not an individualized prediction.",
+        "positive_predictors": [LABELS[factor] for factor in FACTORS if kwargs[factor]],
+        "inputs_evaluated": len(FACTORS),
     }
 
 
-def process_single(args) -> None:
-    kwargs = vars(args)
-    kwargs.pop("func", None)
-    res = calculate_metrics(**kwargs)
-    print(json.dumps(res, indent=2))
+def _parse_bool(value, field, row_number):
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y"}:
+        return True
+    if normalized in {"false", "0", "no", "n"}:
+        return False
+    raise ValueError(f"CSV row {row_number}: {field} must be true/false, yes/no or 1/0")
 
 
-def process_batch(input_csv: str, output_csv: str) -> None:
-    import os
-    if not os.path.isfile(input_csv):
-        raise FileNotFoundError(f"Input CSV not found: {input_csv}")
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        fieldnames = list(reader.fieldnames or [])
-        rows = list(reader)
+def process_single(args):
+    data = {key: getattr(args, key) for key in FACTORS}
+    print(json.dumps(calculate_metrics(**data), indent=2))
 
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
 
-    for r in rows:
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
-
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
+def process_batch(input_csv, output_csv):
+    """Evaluate CSV records; reject incomplete rows before writing output."""
+    source = Path(input_csv)
+    if not source.is_file():
+        raise FileNotFoundError(f"Input CSV not found: {source}")
+    if source.resolve() == Path(output_csv).resolve():
+        raise ValueError("Output CSV must not overwrite the input CSV")
+    with source.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fields = reader.fieldnames or []
+        if len(fields) != len(set(fields)):
+            raise ValueError("Duplicate CSV column names are not supported")
+        missing = [factor for factor in FACTORS if factor not in fields]
+        if missing:
+            raise ValueError(f"Missing required CSV columns: {', '.join(missing)}")
+        out_fields = ("score", "classification", "risk_category", "validation_event_rate_percent")
+        collisions = [field for field in out_fields if field in fields]
+        if collisions:
+            raise ValueError(f"Output fields already exist: {', '.join(collisions)}")
+        rows = []
+        for row_number, row in enumerate(reader, start=2):
+            if None in row:
+                raise ValueError(f"CSV row {row_number} has more fields than the header")
+            values = {factor: _parse_bool(row[factor], factor, row_number) for factor in FACTORS}
+            result = calculate_metrics(**values)
+            rows.append({**row, **{field: result[field] for field in out_fields}})
+    with open(output_csv, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=[*fields, *out_fields])
         writer.writeheader()
-        writer.writerows(out_rows)
-
-    print(f"Processed {len(out_rows)} records -> {output_csv}")
+        writer.writerows(rows)
+    print(f"Processed {len(rows)} records -> {output_csv}")
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Revised Cardiac Risk Index (RCRI / Lee Index)")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Single parser
-    single_parser = subparsers.add_parser("single", help="Evaluate single case")
-    single_parser.add_argument("--v1", type=float, default=10.0, help="Primary parameter")
-    single_parser.add_argument("--v2", type=float, default=5.0, help="Secondary parameter")
-    single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
-    single_parser.set_defaults(func=process_single)
-
-    # Batch parser
-    batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
-    batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
-    batch_parser.add_argument("-o", "--output", default="results.csv", help="Output CSV")
-
+    parser = argparse.ArgumentParser(description="Revised Cardiac Risk Index (RCRI)")
+    commands = parser.add_subparsers(dest="command", required=True)
+    single = commands.add_parser("single", help="Score one case (omitted flags are False)")
+    for factor in FACTORS:
+        single.add_argument("--" + factor.replace("_", "-"), action="store_true", help=LABELS[factor])
+    batch = commands.add_parser("batch", help="Score a CSV with six Boolean columns")
+    batch.add_argument("-i", "--input", required=True, help="Input CSV file")
+    batch.add_argument("-o", "--output", default="results.csv", help="Output CSV file")
     args = parser.parse_args(argv)
-
     if args.command == "single":
-        args.func(args)
-    elif args.command == "batch":
+        process_single(args)
+    else:
         process_batch(args.input, args.output)
 
 
