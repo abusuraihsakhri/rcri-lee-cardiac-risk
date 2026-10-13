@@ -2,10 +2,13 @@
 FastAPI REST API Server for Rcri Lee Cardiac Risk.
 """
 from typing import Dict, Any, List
-from fastapi import FastAPI, HTTPException
+import os
+import hmac
+from fastapi import FastAPI, HTTPException, Header, status
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard
+from pydantic import BaseModel, ConfigDict, StrictBool
+from .base import AuditLogger, PHIGuard, SecurityException
+from rcri_lee import calculate_metrics
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -13,13 +16,30 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Rcri Lee Cardiac Risk API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
+    description="RCRI scoring and legacy generic audit endpoints",
     version="3.0.0-ENTERPRISE",
 )
 
 
 class ChatRequest(BaseModel):
     query: str
+
+
+class RCRIRequest(BaseModel):
+    """All six risk criteria must be explicitly supplied."""
+    model_config = ConfigDict(extra="forbid")
+    high_risk_surgery: StrictBool
+    ischemic_heart_disease: StrictBool
+    heart_failure: StrictBool
+    cerebrovascular_disease: StrictBool
+    insulin_treatment: StrictBool
+    creatinine_ge_2: StrictBool
+
+
+@app.post("/api/rcri")
+def api_rcri(payload: RCRIRequest):
+    """Calculate the Lee Index using the same algorithm as the offline CLI."""
+    return calculate_metrics(**payload.model_dump())
 
 
 @app.get("/health")
@@ -49,5 +69,11 @@ def api_chat(req: ChatRequest):
 
 
 @app.get("/api/audit/logs")
-def api_audit_logs():
+def api_audit_logs(x_audit_access_key: str | None = Header(default=None)):
+    """Administrative audit data is unavailable without a configured secret."""
+    configured = os.getenv("AUDIT_ADMIN_KEY")
+    if not configured:
+        raise HTTPException(status_code=503, detail="Audit log access is not configured")
+    if not x_audit_access_key or not hmac.compare_digest(x_audit_access_key, configured):
+        raise HTTPException(status_code=403, detail="Audit log access denied")
     return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
