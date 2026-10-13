@@ -1,236 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rcri Lee Cardiac Risk — Operations Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card: #111827;
-            --border: #1f293d;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.25);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .header-title h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--accent-glow);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 1.5rem;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.65rem 0.9rem;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-        }
-        .btn:hover { background: #2563eb; }
-        .terminal {
-            background: #060911;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #10b981;
-            height: 380px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .metrics-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .metric-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        .metric-val { font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
-        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>Revised Cardiac Risk Index (RCRI) Calculator</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: #091425; color: #e6edf7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.5; }
+    main { max-width: 1050px; margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); }
+    h1 { font-size: clamp(1.8rem, 3vw, 2.5rem); line-height: 1.2; margin: 0 0 .5rem; }
+    h2 { font-size: 1.14rem; margin: 0 0 1rem; }
+    p { margin: .5rem 0 1rem; }
+    .muted { color: #b1c0d4; }
+    .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-weight: 700;
+      font-size: .75rem; color: #8bc7f7; margin: 0 0 .65rem; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(270px, 1fr);
+      gap: 1.25rem; margin-top: 1.8rem; align-items: start; }
+    .panel { background: #111f32; border: 1px solid #3b4e68; border-radius: 16px;
+      padding: clamp(1.1rem, 3vw, 1.8rem); }
+    .hint { color: #b8c9dc; font-size: .87rem; }
+    .factors { border: 0; padding: 0; margin: 0; }
+    .factors legend { font-weight: 700; margin-bottom: .9rem; }
+    .factor { display: flex; align-items: flex-start; gap: .75rem;
+      padding: .85rem .45rem; border-top: 1px solid #34445a; cursor: pointer; }
+    .factor input { flex: none; width: 1.2rem; height: 1.2rem; margin: .14rem 0 0;
+      accent-color: #51c4e2; }
+    .factor strong { display: block; font-size: .98rem; }
+    .factor small { display: block; color: #b8c9dc; font-size: .82rem; margin-top: .1rem; }
+    button { background: #294661; border: 1px solid #7b9fbe; color: #fff; border-radius: 8px;
+      cursor: pointer; padding: .65rem 1rem; margin-top: 1rem; font: inherit; }
+    button:hover { background: #375d7a; }
+    button:focus-visible, input:focus-visible, a:focus-visible {
+      outline: 3px solid #66d6fa; outline-offset: 3px;
+    }
+    .score { font-size: 4rem; font-weight: 750; line-height: 1.1; letter-spacing: -.05em; }
+    .denominator { font-size: 1.1rem; font-weight: 500; color: #bbc8d9; letter-spacing: 0; }
+    .stat { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid #34445a; }
+    .stat span { display: block; color: #b8c9dc; font-size: .82rem; }
+    .stat strong { font-size: 1.1rem; }
+    .footer { margin-top: 1.4rem; border-top: 1px solid #34445a; padding-top: 1.2rem; }
+    a { color: #8bdafa; }
+    .warning { border-left: 3px solid #f4c36d; padding-left: .85rem; color: #e3d4ad; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+  <script type="module" src="./app.js"></script>
 </head>
 <body>
-
-    <div class="header">
-        <div class="header-title">
-            <h1>Rcri Lee Cardiac Risk</h1>
-            <p>Domain: Clinical & Cryptographic AI | Standard: CAP / CLSI / NIST Standards | LabMind-Atlas Architecture</p>
-        </div>
-        <div>
-            <span class="badge">Air-Gapped Active</span>
-            <span class="badge" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981;">Zero-PHI Guard Active</span>
-        </div>
-    </div>
-
-    <div class="metrics-bar">
-        <div class="metric-box">
-            <div class="metric-label">System Status</div>
-            <div class="metric-val" style="color: var(--success);" id="m-status">OPTIMAL</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">Tasks Processed</div>
-            <div class="metric-val" id="m-tasks">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">Audit Blocks Signed</div>
-            <div class="metric-val" id="m-audit">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">PHI Interceptions</div>
-            <div class="metric-val" style="color: var(--accent);" id="m-phi">0</div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>⚙️ Dispatch Distributed Component Audit</h2>
-            <div class="form-group">
-                <label>Task / Sample ID</label>
-                <input type="text" id="task_id" value="TASK-2026-LIVE-01">
-            </div>
-            <div class="form-group">
-                <label>Target Identifier</label>
-                <input type="text" id="target_id" value="SPECIMEN-ALPHA-77">
-            </div>
-            <div class="form-group">
-                <label>Primary Measurement / Value</label>
-                <input type="number" id="primary_metric" value="29.4" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Secondary Metric / Kinetic Index</label>
-                <input type="number" id="secondary_metric" value="14.8" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Status / Phenotype Descriptor</label>
-                <input type="text" id="status_descriptor" value="DISCORDANT_ANOMALY">
-            </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="is_critical" checked> Trigger Emergency / Critical Flag</label>
-            </div>
-            <button class="btn" onclick="runAudit()">Execute Distributed Component Audit</button>
-        </div>
-
-        <div class="card">
-            <h2>📊 Real-Time Consensus Dossier & Audit Log</h2>
-            <div class="terminal" id="outputConsole">// Rcri Lee Cardiac Risk Operations Console Ready
-// Connection established with Air-Gapped Supervisor
-// Cryptographic HMAC-SHA256 audit ledger loaded.
-// Ready for live task payload dispatch...</div>
-        </div>
-    </div>
-
-    <script>
-        async function runAudit() {
-            const consoleEl = document.getElementById('outputConsole');
-            consoleEl.innerText = "// Dispatching task across specialized workers...
-// Invoking InvariantQCWorker, SafetyEscalationWorker, ProtocolWorker...";
-
-            const payload = {
-                task_id: document.getElementById('task_id').value,
-                target_identifier: document.getElementById('target_id').value,
-                primary_metric: parseFloat(document.getElementById('primary_metric').value),
-                secondary_metric: parseFloat(document.getElementById('secondary_metric').value),
-                status_descriptor: document.getElementById('status_descriptor').value,
-                is_critical_flag: document.getElementById('is_critical').checked
-            };
-
-            try {
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                consoleEl.innerText = JSON.stringify(data, null, 2);
-                document.getElementById('m-tasks').innerText = parseInt(document.getElementById('m-tasks').innerText) + 1;
-                document.getElementById('m-audit').innerText = parseInt(document.getElementById('m-audit').innerText) + 1;
-            } catch (err) {
-                consoleEl.innerText = "// Offline / Simulation Output:\n" + JSON.stringify({
-                    dossier_id: "DOSSIER-SIM-" + Math.floor(Math.random()*10000),
-                    system: "rcri-lee-cardiac-risk",
-                    domain: "Clinical & Cryptographic AI",
-                    task_id: payload.task_id,
-                    overall_urgency: payload.is_critical_flag ? "CRITICAL_STAT_PANIC" : "ELEVATED_RISK",
-                    integrity_status: "DISCORDANT_ANOMALY",
-                    alerts: [
-                        { worker: "InvariantQCWorker", alert: "Primary metric exceeds upper reference bound" },
-                        { worker: "SafetyEscalationWorker", alert: "Critical emergency interlock flag active" }
-                    ],
-                    audit_hash: "HMAC_SHA256_e83f9a72b941d6c381f9"
-                }, null, 2);
-            }
-        }
-    </script>
+<main>
+  <header>
+    <p class="eyebrow">Perioperative medicine · Clinical reference tool</p>
+    <h1>Revised Cardiac Risk Index</h1>
+    <p class="muted">Lee Index for major cardiac complications in noncardiac surgery. One point per predictor; six points maximum.</p>
+  </header>
+  <div class="layout">
+    <section class="panel" aria-labelledby="factors-title">
+      <h2 id="factors-title">Patient and procedure risk factors</h2>
+      <p class="hint">Select every factor known to be present. Unchecked factors are treated as absent, not unknown.</p>
+      <form id="rcri-form">
+        <fieldset class="factors">
+          <legend class="muted">Six binary predictors</legend>
+          <label class="factor"><input type="checkbox" name="high_risk_surgery"><span><strong>High-risk surgery</strong><small>Intraperitoneal, intrathoracic, or suprainguinal vascular surgery</small></span></label>
+          <label class="factor"><input type="checkbox" name="ischemic_heart_disease"><span><strong>History of ischemic heart disease</strong><small>Prior MI, angina, nitrate use, or pathological Q waves</small></span></label>
+          <label class="factor"><input type="checkbox" name="heart_failure"><span><strong>History of congestive heart failure</strong><small>Clinical or documented prior heart failure</small></span></label>
+          <label class="factor"><input type="checkbox" name="cerebrovascular_disease"><span><strong>History of cerebrovascular disease</strong><small>Prior stroke or transient ischemic attack</small></span></label>
+          <label class="factor"><input type="checkbox" name="insulin_treatment"><span><strong>Preoperative insulin treatment</strong><small>Diabetes treated with insulin</small></span></label>
+          <label class="factor"><input type="checkbox" name="creatinine_ge_2"><span><strong>Serum creatinine ≥ 2.0 mg/dL</strong><small>≥ 177 µmol/L; threshold used in the 2024 AHA/ACC guideline</small></span></label>
+        </fieldset>
+        <button type="button" id="reset-form">Clear selections</button>
+      </form>
+    </section>
+    <section class="panel" aria-labelledby="result-title">
+      <h2 id="result-title">RCRI result</h2>
+      <div aria-live="polite" aria-atomic="true">
+        <div class="score"><span id="score">0</span><span class="denominator"> / 6</span></div>
+        <p id="details" class="muted">No predictors selected</p>
+        <div class="stat"><span>Risk class</span><strong id="class">Class I</strong></div>
+        <div class="stat"><span>Guideline risk grouping</span><strong id="risk">Low perioperative risk category</strong></div>
+        <div class="stat"><span>Observed major cardiac complication rate (1999 validation cohort)</span><strong id="rate">0.4%</strong></div>
+      </div>
+      <div class="footer">
+        <p class="warning"><strong>Interpretation:</strong> Rates describe the original validation cohort, not a personalized or contemporary event probability. RCRI ≥ 2 is traditionally considered an elevated-risk score; other clinical factors and procedure-specific risks remain relevant.</p>
+        <p class="hint">For clinical decision support only. Not a substitute for individualized perioperative assessment or current guidelines.</p>
+      </div>
+    </section>
+  </div>
+  <footer class="footer muted">
+    <p><strong>Privacy:</strong> The calculator uses local JavaScript only. No patient identifiers, uploads, accounts, external fonts, cookies, or network requests are required. Selections are not saved.</p>
+    <p><strong>Sources:</strong>
+      <a href="https://pubmed.ncbi.nlm.nih.gov/10477528/" rel="noreferrer noopener" target="_blank">Lee et al., Circulation (1999)</a>
+      · <a href="https://www.jacc.org/doi/10.1016/j.jacc.2024.06.013" rel="noreferrer noopener" target="_blank">2024 AHA/ACC perioperative guideline</a>
+    </p>
+  </footer>
+</main>
 </body>
 </html>
