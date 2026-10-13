@@ -1,4 +1,4 @@
-Patient_ID,v1,v2,v3
-PT-101,14.5,4.2,1.8
-PT-102,8.0,2.1,0.5
-PT-103,28.4,12.0,5.5
+case,high_risk_surgery,ischemic_heart_disease,heart_failure,cerebrovascular_disease,insulin_treatment,creatinine_ge_2
+Example-0,false,false,false,false,false,false
+Example-2,true,false,true,false,false,false
+Example-4,true,true,true,false,true,false
