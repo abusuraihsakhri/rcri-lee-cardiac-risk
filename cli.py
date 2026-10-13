@@ -8,6 +8,7 @@ import sys
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import AuditLogger
+from rcri_lee import _parse_bool
 
 supervisor = SystemSupervisor(model_provider="mock")
 
@@ -91,14 +92,14 @@ def main(argv=None):
 
         out_fields = fieldnames + ["overall_urgency", "integrity_status", "total_alerts", "audit_hash"]
         out_rows = []
-        for r in rows:
+        for row_number, r in enumerate(rows, start=2):
             payload = SystemTaskPayload(
                 task_id=r.get("task_id", "TASK-01"),
                 target_identifier=r.get("target_identifier", "TARGET-01"),
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=_parse_bool(r.get("is_critical_flag", "false"), "is_critical_flag", row_number),
             )
             dossier = supervisor.process_task(payload)
             row_dict = dict(r)

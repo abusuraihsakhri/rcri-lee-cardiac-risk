@@ -50,8 +50,6 @@ class SystemSupervisor:
             actor_tier="supervisor",
             event_type="TASK_EVALUATION_COMPLETED",
             details={
-                "task_id": payload.task_id,
-                "target_identifier": payload.target_identifier,
                 "overall_urgency": overall_urgency.value,
                 "total_alerts": len(all_alerts),
             }

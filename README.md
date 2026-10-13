@@ -1,192 +1,73 @@
-# Rcri Lee Cardiac Risk
+# Revised Cardiac Risk Index (RCRI / Lee Index)
 
-> **Domain:** Cardiovascular Medicine & Hemodynamic Analytics  
-> **Reference Guidelines & Standards:** `AHA/ACC Practice Guidelines & ESC Clinical Standards`
+A six-factor perioperative cardiac risk score for **noncardiac surgery**. The repository provides an offline browser calculator, a Python CLI, CSV batch scoring, and a FastAPI endpoint.
 
-<div align="center">
+## Clinical basis
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+One point is assigned for each present factor:
 
-</div>
+1. High-risk surgery (intraperitoneal, intrathoracic, or suprainguinal vascular)
+2. History of ischemic heart disease
+3. History of congestive heart failure
+4. History of cerebrovascular disease
+5. Preoperative insulin treatment
+6. Serum creatinine ≥ 2.0 mg/dL (threshold in the 2024 AHA/ACC guideline)
 
----
+**RCRI = sum of these six Boolean predictors (0–6).** In the original 1999 *validation cohort*, the observed rates of major cardiac complications for scores 0, 1, 2, and ≥3 were **0.4%, 0.9%, 7%, and 11%**, respectively. The score categories are Class I (0), Class II (1), Class III (2), and Class IV (≥3). An RCRI of ≥2 is traditionally considered an elevated-risk score.
 
-## 📖 What It Does
+These are historical cohort observations, **not individualized or contemporary event probabilities**. The RCRI does not replace clinical assessment, procedure-specific risk tools, or current perioperative guidance.
 
-Revised Cardiac Risk Index (RCRI / Lee Index)
-Predicts perioperative major adverse cardiac events (MACE) in non-cardiac surgery.
+References: [Lee et al., *Circulation*, 1999](https://pubmed.ncbi.nlm.nih.gov/10477528/) · [2024 AHA/ACC perioperative guideline](https://www.jacc.org/doi/10.1016/j.jacc.2024.06.013).
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+## Browser calculator
 
----
+Open the configured GitHub Pages deployment, or serve the `web/` directory from a local HTTP server. Select the six predictors to calculate a score immediately. The static interface runs entirely in browser JavaScript, uses no external libraries, does not make requests to a clinical backend, and does not store selections. No Python-in-browser runtime is needed for this small deterministic calculation.
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+The browser calculator does **not** accept patient names, identifiers, or uploaded files.
 
-### 🔬 Analytical Functions
+For local browser use, run `python -m http.server 8000 -d web` and visit `http://localhost:8000/`. Opening the HTML directly via `file://` may be blocked by browsers' ES-module security restrictions.
 
-- **`calculate_metrics()`**: Core scoring algorithm with NaN/Infinity validation
-- **`process_single()`** — evaluates a single case with provided parameters
-- **`process_batch()`** — processes CSV input with file validation and error handling
-- **`main()`** — CLI entry point supporting single and batch modes
+## Python CLI and batch processing
 
----
+Python 3.10 or newer:
 
-## 📐 Mathematical Formulation & Logic
+~~~bash
+python -m pip install -e ".[test]"
+rcri-lee single --high-risk-surgery --heart-failure
+rcri-lee batch -i sample.csv -o results.csv
+python -m pytest -q
+~~~
 
-```text
-  score = primary_val + Σ(val_i * (1/i))  for i = 2..n
-  rounded_score = round(score, 2)
-```
+The single-case command treats omitted flags as absent. All **six** named columns must be supplied in batch CSV; accepted values are `true/false`, `yes/no`, or `1/0` (case-insensitive). Missing or invalid data is rejected rather than silently scored as zero. Scores, risk classes, category, and the original validation-cohort observed rate are appended to the CSV. Additional columns are carried through verbatim; do not upload or share CSV files containing identifiable patient information.
 
-Classification tiers:
-- **< 10.0**: Low / Standard — Standard monitoring
-- **10.0 - 24.9**: Moderate / Intermediate — Close observation
-- **≥ 25.0**: High / Severe — Urgent clinical intervention
+The primary Python API is `rcri_lee.calculate_metrics(**six_boolean_factors)`.
 
----
+## Optional REST API and existing audit components
 
-## 💻 Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/abusuraihsakhri/rcri-lee-cardiac-risk.git
-cd rcri-lee-cardiac-risk
-
-# Install dependencies
-pip install -e ".[test]"
-
-# Or install directly
-pip install fastapi uvicorn pydantic pytest
-```
-
----
-
-## 🖥️ CLI Quickstart & Usage
-
-### 1. Single Case Evaluation
-```bash
-python rcri_lee.py single --v1 14.5 --v2 4.2 --v3 1.8
-```
-
-### 2. Batch CSV Processing
-```bash
-python rcri_lee.py batch -i sample.csv -o results.csv
-```
-
-### 3. Enterprise CLI (Agents System)
-```bash
-# Audit evaluation
-python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
-
-# Batch processing
-python cli.py batch -i sample.csv -o results.csv
-
-# Verify audit trail integrity
-python cli.py verify-audit
-
-# Launch REST API server
+~~~bash
 python cli.py serve --host 127.0.0.1 --port 8000
-```
+~~~
 
-### Parameter Reference
-- `--v1`, `--v2`, `--v3`: Numeric measurement values (default: 10.0, 5.0, 2.0)
-- `-i`, `--input`: Input CSV file path (required for batch mode)
-- `-o`, `--output`: Output CSV file path (default: results.csv)
+`POST /api/rcri` accepts JSON with all six Boolean fields, with extra fields rejected. OpenAPI documentation is available at `/docs` on the running server. These server endpoints are **not deployed to GitHub Pages**.
 
-### Input Data Schema
+The pre-existing generic audit, worker, simulated chat, and enrichment interfaces are still available through `python cli.py` and `rcri-lee-audit`. They are **demonstration utilities, not RCRI prediction models or independently validated clinical decision systems**. In particular, the generic workers' thresholds are unrelated to the Lee Index. Do not interpret their alert tiers as perioperative risk advice.
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Patient identifier | Required |
-| `v1` | Primary measurement value | Required |
-| `v2` | Secondary measurement value | Required |
-| `v3` | Tertiary measurement value | Optional |
+The in-memory HMAC audit trail requires `AUDIT_SECRET_KEY` for a stable key; it does not provide persistent storage. The administrative `/api/audit/logs` endpoint additionally requires `AUDIT_ADMIN_KEY`, sent as the `X-Audit-Access-Key` header. The existing pattern-based identifier guard is not a comprehensive PHI-deidentification or HIPAA compliance mechanism. Avoid passing patient identifiers to any demonstration or audit endpoint. Keep server-side keys private.
 
----
+## Local verification and container
 
-## 🔒 Security Configuration
+~~~bash
+python -m pytest -q
+node --test web/app.test.mjs  # Node.js 22+
+docker compose up --build    # Requires AUDIT_SECRET_KEY in the environment
+~~~
 
-### Audit Secret Key
-The HMAC-SHA256 audit trail requires a secret key for persistent integrity:
+CI runs Python tests on Python 3.10–3.12 and JavaScript unit tests on Node.js 22, then publishes the `web/` directory to GitHub Pages on successful `master` pushes when GitHub Pages is configured for GitHub Actions.
 
-```bash
-# Set via environment variable
-export AUDIT_SECRET_KEY="your-secure-random-key-min-32-chars"
-```
+## Technology and compatibility
 
-If not set, an ephemeral session key is generated with a runtime warning.
+Python 3.10+, FastAPI, Pydantic v2, pytest, and vanilla HTML/CSS/JavaScript (ES modules). The static calculator works in current browsers with module support, including Chrome, Firefox, Safari, and Edge. Browser calculations and Python scoring require no network access. The static app does not persist data.
 
----
+## License
 
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and Prometheus text metrics (`/metrics`)
-* **Input Validation:** NaN and Infinity values are safely handled as non-numeric
-
----
-
-## 🧪 Testing & Verification
-
-Run the full test suite:
-
-```bash
-pytest -v
-```
-
-Run specific test modules:
-
-```bash
-pytest tests/test_edge_cases.py -v
-pytest tests/test_rcri_lee_cardiac_risk.py -v
-pytest tests/test_enrichment.py -v
-```
-
-Execute simulation benchmark:
-
-```bash
-python simulator.py 1000
-```
-
----
-
-## 🐳 Container Deployment
-
-```bash
-docker build -t rcri-lee-cardiac-risk .
-docker run -p 8000:8000 -e AUDIT_SECRET_KEY="your-secret" rcri-lee-cardiac-risk
-```
-
----
-
-## 📁 Project Structure
-
-```
-rcri-lee-cardiac-risk/
-├── agents/                 # Enterprise agent system
-│   ├── api.py             # FastAPI REST server
-│   ├── base.py            # Security, PHI guard, audit trail
-│   ├── models.py          # Pydantic data models
-│   ├── supervisor.py      # Multi-agent orchestrator
-│   ├── workers.py         # Specialized worker agents
-│   ├── metrics.py         # Prometheus metrics collector
-│   ├── learning.py        # Bayesian calibration engine
-│   └── llm_factory.py     # LLM provider factory
-├── tests/                 # Test suite
-├── web/                   # Web dashboard
-├── cli.py                 # Enterprise CLI entry point
-├── rcri_lee.py            # Core scoring module
-├── enrichment.py          # Enrichment feature engines
-├── simulator.py           # Load testing simulator
-├── pyproject.toml         # Project metadata and dependencies
-├── Dockerfile             # Container definition
-└── docker-compose.yml     # Multi-service orchestration
-```
+MIT — see [LICENSE](LICENSE).
