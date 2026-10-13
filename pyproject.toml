@@ -34,7 +34,8 @@ test = [
 ]
 
 [project.scripts]
-rcri-lee = "cli:main"
+rcri-lee = "rcri_lee:main"
+rcri-lee-audit = "cli:main"
 
 [tool.setuptools]
 py-modules = ["rcri_lee", "cli", "enrichment", "simulator"]
