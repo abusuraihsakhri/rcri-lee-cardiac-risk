@@ -1,89 +1,76 @@
-"""
-Edge case and input validation tests for rcri-lee-cardiac-risk.
-"""
-import sys
-import os
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+"""Clinically consequential edge cases for RCRI scoring."""
+import csv
+import itertools
 
 import pytest
-import math
-from rcri_lee import calculate_metrics, process_batch
+
+from rcri_lee import FACTORS, calculate_metrics, process_batch
 
 
-def test_calculate_metrics_with_nan():
-    """NaN values should be treated as non-numeric and not affect score."""
-    res = calculate_metrics(v1=float('nan'), v2=5.0)
-    assert "score" in res
-    assert math.isfinite(res["score"])
+def factors_with(n):
+    return {factor: i < n for i, factor in enumerate(FACTORS)}
 
 
-def test_calculate_metrics_with_inf():
-    """Infinity values should be treated as non-numeric."""
-    res = calculate_metrics(v1=float('inf'), v2=5.0)
-    assert "score" in res
-    assert math.isfinite(res["score"])
+@pytest.mark.parametrize("score,risk_class,rate", [
+    (0, "Class I", 0.4),
+    (1, "Class II", 0.9),
+    (2, "Class III", 7.0),
+    (3, "Class IV", 11.0),
+    (4, "Class IV", 11.0),
+    (5, "Class IV", 11.0),
+    (6, "Class IV", 11.0),
+])
+def test_rcri_levels(score, risk_class, rate):
+    result = calculate_metrics(**factors_with(score))
+    assert result["score"] == score
+    assert result["classification"] == risk_class
+    assert result["validation_event_rate_percent"] == rate
+    assert result["risk_category"] == ("Elevated" if score >= 2 else "Low")
 
 
-def test_calculate_metrics_with_negative_inf():
-    """Negative infinity values should be treated as non-numeric."""
-    res = calculate_metrics(v1=float('-inf'), v2=5.0)
-    assert "score" in res
-    assert math.isfinite(res["score"])
+def test_all_64_combinations():
+    for combination in itertools.product([False, True], repeat=6):
+        result = calculate_metrics(**dict(zip(FACTORS, combination)))
+        assert result["score"] == sum(combination)
 
 
-def test_calculate_metrics_with_no_numeric():
-    """When no numeric values provided, should use default 1.0."""
-    res = calculate_metrics(a="hello", b="world")
-    assert res["score"] == 1.0
-    assert res["classification"] == "Low / Standard"
+@pytest.mark.parametrize("invalid", [None, "", "false", "0", 0, 1, -1, 2, float("nan"), float("inf")])
+def test_non_boolean_rejected(invalid):
+    data = factors_with(0)
+    data["heart_failure"] = invalid
+    with pytest.raises(ValueError, match="Boolean"):
+        calculate_metrics(**data)
 
 
-def test_calculate_metrics_with_none_values():
-    """None values should be ignored."""
-    res = calculate_metrics(v1=None, v2=5.0)
-    assert res["score"] == 5.0
+def test_missing_and_unexpected_rejected():
+    with pytest.raises(ValueError, match="missing"):
+        calculate_metrics()
+    with pytest.raises(ValueError, match="unknown"):
+        calculate_metrics(**factors_with(0), patient_name="private")
 
 
-def test_calculate_metrics_empty():
-    """Empty call should return default score."""
-    res = calculate_metrics()
-    assert res["score"] == 1.0
-    assert res["inputs_evaluated"] == 0
-
-
-def test_process_batch_file_not_found():
-    """Should raise FileNotFoundError for missing input file."""
+def test_batch_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
-        process_batch("nonexistent_file.csv", "output.csv")
+        process_batch(str(tmp_path / "no-file.csv"), str(tmp_path / "out.csv"))
 
 
-def test_process_batch_with_nan_in_csv(tmp_path):
-    """CSV with NaN values should handle gracefully."""
-    csv_in = tmp_path / "in.csv"
-    csv_out = tmp_path / "out.csv"
-    csv_in.write_text("Patient,v1,v2\nPat_001,nan,3.0\nPat_002,5.0,inf\n", encoding="utf-8")
-
-    process_batch(str(csv_in), str(csv_out))
-    assert csv_out.exists()
-    content = csv_out.read_text(encoding="utf-8")
-    assert "Pat_001" in content
+def test_batch_rejects_invalid_values_without_output(tmp_path):
+    src, dst = tmp_path / "input.csv", tmp_path / "output.csv"
+    src.write_text(",".join(FACTORS) + "\n" + ",".join([""] * 6) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="row 2"):
+        process_batch(str(src), str(dst))
+    assert not dst.exists()
 
 
-def test_calculate_metrics_classification_tiers():
-    """Test all three classification tiers."""
-    low = calculate_metrics(v1=5.0)
-    assert low["classification"] == "Low / Standard"
-
-    mid = calculate_metrics(v1=15.0)
-    assert mid["classification"] == "Moderate / Intermediate"
-
-    high = calculate_metrics(v1=30.0)
-    assert high["classification"] == "High / Severe"
+def test_batch_rejects_missing_header(tmp_path):
+    src, dst = tmp_path / "input.csv", tmp_path / "output.csv"
+    src.write_text("high_risk_surgery\ntrue\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Missing required"):
+        process_batch(str(src), str(dst))
 
 
-def test_calculate_metrics_with_string_numeric():
-    """String representations of numbers should be parsed."""
-    res = calculate_metrics(v1="12.5", v2="3.5")
-    assert res["score"] > 0
-    assert math.isfinite(res["score"])
+def test_batch_rejects_input_overwrite(tmp_path):
+    src = tmp_path / "input.csv"
+    src.write_text(",".join(FACTORS) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="overwrite"):
+        process_batch(str(src), str(src))
