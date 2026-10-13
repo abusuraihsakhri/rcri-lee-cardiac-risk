@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Rcri Lee Cardiac Risk API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
+    "title": "Revised Cardiac Risk Index API",
+    "description": "Six-factor RCRI scoring and separate legacy demonstration endpoints.",
+    "version": "3.1.0",
     "contact": {
       "name": "Dr. Abu Suraih Sakhri",
       "url": "https://github.com/abusuraihsakhri"
@@ -32,7 +32,7 @@
     },
     "/api/audit": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
+        "summary": "Run legacy generic demonstration worker evaluation (not RCRI scoring)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -76,7 +76,7 @@
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
+        "summary": "Return offline demonstration chat response (not clinical verification)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -103,10 +103,78 @@
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "summary": "Retrieve in-memory HMAC audit entries (requires AUDIT_ADMIN_KEY)",
         "responses": {
           "200": {
             "description": "Cryptographic audit trail"
+          },
+          "403": {
+            "description": "Invalid audit access key"
+          },
+          "503": {
+            "description": "Audit log access not configured"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Audit-Access-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/rcri": {
+      "post": {
+        "summary": "Calculate six-factor Lee Index",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "high_risk_surgery": {
+                    "type": "boolean"
+                  },
+                  "ischemic_heart_disease": {
+                    "type": "boolean"
+                  },
+                  "heart_failure": {
+                    "type": "boolean"
+                  },
+                  "cerebrovascular_disease": {
+                    "type": "boolean"
+                  },
+                  "insulin_treatment": {
+                    "type": "boolean"
+                  },
+                  "creatinine_ge_2": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "high_risk_surgery",
+                  "ischemic_heart_disease",
+                  "heart_failure",
+                  "cerebrovascular_disease",
+                  "insulin_treatment",
+                  "creatinine_ge_2"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "RCRI score, class, grouping and historical validation-cohort rate"
+          },
+          "422": {
+            "description": "Missing or invalid risk criteria"
           }
         }
       }
