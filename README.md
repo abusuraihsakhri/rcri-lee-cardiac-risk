@@ -21,9 +21,11 @@ References: [Lee et al., *Circulation*, 1999](https://pubmed.ncbi.nlm.nih.gov/10
 
 ## Browser calculator
 
-Open `web/index.html` locally or via a configured GitHub Pages deployment. Select the six predictors to calculate a score immediately. The static interface runs entirely in browser JavaScript, uses no external libraries, does not make requests to a clinical backend, and does not store selections. No Python-in-browser runtime is needed for this small deterministic calculation.
+Open the configured GitHub Pages deployment, or serve the `web/` directory from a local HTTP server. Select the six predictors to calculate a score immediately. The static interface runs entirely in browser JavaScript, uses no external libraries, does not make requests to a clinical backend, and does not store selections. No Python-in-browser runtime is needed for this small deterministic calculation.
 
 The browser calculator does **not** accept patient names, identifiers, or uploaded files.
+
+For local browser use, run `python -m http.server 8000 -d web` and visit `http://localhost:8000/`. Opening the HTML directly via `file://` may be blocked by browsers' ES-module security restrictions.
 
 ## Python CLI and batch processing
 
